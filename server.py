@@ -4,7 +4,7 @@ import requests
 import json
 import os
 import ollama
-from config import COINMARKETCAP_API_KEY, OLLAMA_HOST  # Import OLLAMA_HOST as well
+from config import COINMARKETCAP_API_KEY, OLLAMA_HOST, BYBIT_API_KEY  # Remove BINANCE_API_URL
 
 app = Flask(__name__, 
             static_folder='static',
@@ -15,7 +15,8 @@ CORS(app)
 def fetch_binance_data(crypto_symbol):
     symbol = f"{crypto_symbol.upper()}USDT"  
     try:
-        url = f"https://api.binance.com/api/v3/ticker/24hr?symbol={symbol}"
+        # Use Binance API URL directly instead of from config
+        url = f"https://api4.binance.com/api/v3/ticker/24hr?symbol={symbol}"
         response = requests.get(url, timeout=10)
         response.raise_for_status()
         data = response.json()
@@ -34,7 +35,8 @@ def fetch_bybit_data(crypto_symbol):
     symbol = f"{crypto_symbol.upper()}USDT"
     try:
         url = f"https://api.bybit.com/v5/market/tickers?category=spot&symbol={symbol}"
-        response = requests.get(url, timeout=10)
+        headers = {"X-BAPI-API-KEY": BYBIT_API_KEY}
+        response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
         data = response.json()
         ticker = data['result']['list'][0]  # Bybit returns a list of tickers
