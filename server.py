@@ -91,23 +91,36 @@ def get_crypto_prediction(crypto_symbol, model_data):
     )
 
     try:
-        # Use direct HTTP request to Ollama API instead of the client library
+        # Use direct HTTP request to Ollama API with streaming set to FALSE
         response = requests.post(
             f"{OLLAMA_HOST}/api/generate",
             json={
                 "model": model_name,
                 "prompt": instruction,
-                "stream": False
+                "stream": False  # Set to False to get a single complete response
             },
-            headers={"Content-Type": "application/json"},
-            timeout=60
+            headers={"Content-Type": "application/json"}
         )
         response.raise_for_status()
         result = response.json()
         return {"prediction_text": result.get('response', 'No prediction available')}
+    except json.JSONDecodeError as e:
+        print(f"JSON Decode Error with Ollama API: {e}")
+        print(f"Response text: {response.text[:200]}...")  # Print first 200 chars of response for debugging
+        return {"error": "Failed to decode AI response. Please try again later."}
+    except requests.exceptions.ConnectionError as e:
+        print(f"Connection error with Ollama API: {e}")
+        return {"error": "Connection to AI service failed. Please try again later."}
+    except requests.exceptions.Timeout as e:
+        print(f"Timeout error with Ollama API: {e}")
+        return {"error": "AI service request timed out. Please try again later."}
+    except requests.exceptions.HTTPError as e:
+        print(f"HTTP error with Ollama API: {e}")
+        status_code = e.response.status_code if hasattr(e, 'response') and hasattr(e.response, 'status_code') else 'unknown'
+        return {"error": f"AI service returned an error (status {status_code}). Please try again later."}
     except Exception as e:
-        print(f"Error with Ollama API: {e}")
-        return {"error": str(e)}
+        print(f"Unexpected error with Ollama API: {e}")
+        return {"error": "An unexpected error occurred. Please try again later."}
 
 # Serve the HTML frontend
 @app.route('/')
@@ -149,7 +162,7 @@ def get_crypto_data():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# Endpoint for predictions
+# Endpoint for predictions with improved error handling
 @app.route('/api/crypto-prediction', methods=['POST'])
 def get_prediction():
     try:
@@ -159,10 +172,29 @@ def get_prediction():
         
         crypto_symbol = data['crypto_symbol']
         combined_data = data['live_data']
+        
+        # Set a longer timeout for the entire request handling
         prediction = get_crypto_prediction(crypto_symbol, combined_data)
-        return jsonify({"prediction": prediction, "crypto_symbol": crypto_symbol})
+        
+        # Check if prediction contains an error
+        if "error" in prediction:
+            return jsonify({
+                "prediction": prediction, 
+                "crypto_symbol": crypto_symbol,
+                "status": "error"
+            }), 200  # Return 200 but with error status in the response
+        
+        return jsonify({
+            "prediction": prediction, 
+            "crypto_symbol": crypto_symbol,
+            "status": "success"
+        })
     except Exception as e:
-        return jsonify({"error": f"Prediction failed: {str(e)}"}), 500
+        print(f"Prediction failed: {str(e)}")
+        return jsonify({
+            "error": f"Prediction failed: {str(e)}",
+            "status": "error"
+        }), 500
 
 if __name__ == '__main__':
     os.makedirs('templates', exist_ok=True)

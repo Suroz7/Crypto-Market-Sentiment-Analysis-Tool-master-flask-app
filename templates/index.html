@@ -593,19 +593,8 @@
         }
         
         function formatPredictionText(text) {
-            // Replace line breaks with paragraph elements
-            return text
-                .split('\n\n')
-                .map(paragraph => {
-                    if (paragraph.trim().length === 0) return '';
-                    if (paragraph.toLowerCase().includes('analyzing') || 
-                        paragraph.toLowerCase().includes('looking at') ||
-                        paragraph.toLowerCase().includes('based on the data')) {
-                        return `<div class="think">${paragraph}</div>`;
-                    }
-                    return `<p>${paragraph}</p>`;
-                })
-                .join('');
+            // Simply return the text as a single paragraph, with no special formatting
+            return `<p>${text}</p>`;
         }
         
         function formatNumber(num) {
