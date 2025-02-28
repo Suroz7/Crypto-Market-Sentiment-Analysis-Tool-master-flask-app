@@ -68,6 +68,21 @@ def fetch_coinmarketcap_data(crypto_symbol):
         print(f"Error fetching CoinMarketCap data for {symbol}: {e}")
         return None
 
+# Add a fallback prediction method for when Ollama is unavailable
+def get_fallback_prediction(crypto_symbol, model_data):
+    binance_data = model_data.get("binance", {})
+    current_price = binance_data.get('price', 0)
+    change_24h = binance_data.get('percent_change_24h', 0)
+    
+    prediction_text = (
+        f"Based on the current data for {crypto_symbol}, the price is ${current_price:.4f}. "
+        f"In the last 24 hours, there has been a {change_24h:.2f}% change. "
+        f"Due to temporary issues with our prediction service, detailed analysis is unavailable. "
+        f"Please try again later for AI-powered predictions."
+    )
+    
+    return {"prediction_text": prediction_text}
+
 # Get prediction from Ollama AI
 def get_crypto_prediction(crypto_symbol, model_data):
     model_name = "deepseek-r1:1.5b"
@@ -102,12 +117,19 @@ def get_crypto_prediction(crypto_symbol, model_data):
             headers={"Content-Type": "application/json"}
         )
         response.raise_for_status()
-        result = response.json()
-        return {"prediction_text": result.get('response', 'No prediction available')}
-    except json.JSONDecodeError as e:
-        print(f"JSON Decode Error with Ollama API: {e}")
-        print(f"Response text: {response.text[:200]}...")  # Print first 200 chars of response for debugging
-        return {"error": "Failed to decode AI response. Please try again later."}
+        
+        # Check if response content exists before trying to decode
+        if not response.text:
+            print("Empty response received from Ollama API")
+            return {"error": "Empty response from AI service. Please try again."}
+            
+        try:
+            result = response.json()
+            return {"prediction_text": result.get('response', 'No prediction available')}
+        except json.JSONDecodeError as e:
+            print(f"JSON Decode Error with Ollama API: {e}")
+            print(f"Response text: {response.text[:200]}...")  # Print first 200 chars of response for debugging
+            return {"error": "Failed to decode AI response. Please try again later."}
     except requests.exceptions.ConnectionError as e:
         print(f"Connection error with Ollama API: {e}")
         return {"error": "Connection to AI service failed. Please try again later."}
@@ -120,7 +142,8 @@ def get_crypto_prediction(crypto_symbol, model_data):
         return {"error": f"AI service returned an error (status {status_code}). Please try again later."}
     except Exception as e:
         print(f"Unexpected error with Ollama API: {e}")
-        return {"error": "An unexpected error occurred. Please try again later."}
+        print(f"Falling back to basic prediction due to error: {e}")
+        return get_fallback_prediction(crypto_symbol, model_data)
 
 # Serve the HTML frontend
 @app.route('/')
@@ -199,4 +222,4 @@ def get_prediction():
 if __name__ == '__main__':
     os.makedirs('templates', exist_ok=True)
     os.makedirs('static', exist_ok=True)
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=False, host='0.0.0.0', port=5000)

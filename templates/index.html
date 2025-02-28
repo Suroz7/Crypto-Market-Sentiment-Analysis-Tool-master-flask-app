@@ -431,7 +431,7 @@
                         },
                         { 
                             label: 'Volume', 
-                            value: formatNumber(data.binance.volume) 
+                            value: data.binance.volume.toLocaleString() 
                         }
                     ]
                 );
@@ -455,7 +455,7 @@
                         },
                         { 
                             label: 'Volume', 
-                            value: formatNumber(data.bybit.volume) 
+                            value: data.bybit.volume.toLocaleString()
                         }
                     ]
                 );
@@ -479,7 +479,7 @@
                         },
                         { 
                             label: 'Market Cap', 
-                            value: `$${formatNumber(data.coinmarketcap.market_cap)}` 
+                            value: `$${data.coinmarketcap.market_cap.toLocaleString()}` 
                         }
                     ]
                 );
@@ -575,14 +575,35 @@
                     })
                 });
                 
-                const data = await response.json();
+                // Check if response is ok before trying to parse JSON
+                if (!response.ok) {
+                    throw new Error(`Server responded with status: ${response.status}`);
+                }
+                
+                // Check for empty response
+                const responseText = await response.text();
+                if (!responseText) {
+                    throw new Error('Empty response from server');
+                }
+                
+                // Try to parse JSON
+                let data;
+                try {
+                    data = JSON.parse(responseText);
+                } catch (parseError) {
+                    console.error("JSON parse error:", parseError);
+                    console.error("Raw response:", responseText);
+                    throw new Error(`Failed to parse server response: ${parseError.message}`);
+                }
                 
                 if (data.error) {
                     predictionDiv.innerHTML = `<p class="error">Error: ${data.error}</p>`;
-                } else {
+                } else if (data.prediction && data.prediction.prediction_text) {
                     // Format the prediction text with proper styling
                     const formattedText = formatPredictionText(data.prediction.prediction_text);
                     predictionDiv.innerHTML = formattedText;
+                } else {
+                    predictionDiv.innerHTML = `<p class="error">Invalid response format from server</p>`;
                 }
             } catch (error) {
                 predictionDiv.innerHTML = `<p class="error">Error generating prediction: ${error.message}</p>`;
@@ -593,24 +614,20 @@
         }
         
         function formatPredictionText(text) {
-            // Simply return the text as a single paragraph, with no special formatting
-            return `<p>${text}</p>`;
+            // Display text exactly as received, with no formatting
+            // Just ensure it's properly escaped to prevent HTML injection
+            const escapeHtml = (unsafe) => {
+                return unsafe
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            };
+            
+            return `<p style="white-space: pre-wrap;">${escapeHtml(text)}</p>`;
         }
         
-        function formatNumber(num) {
-            if (!num) return '0';
-            
-            if (num >= 1000000000) {
-                return (num / 1000000000).toFixed(2) + 'B';
-            }
-            if (num >= 1000000) {
-                return (num / 1000000).toFixed(2) + 'M';
-            }
-            if (num >= 1000) {
-                return (num / 1000).toFixed(2) + 'K';
-            }
-            return num.toFixed(2);
-        }
     </script>
 </body>
 </html>

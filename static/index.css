@@ -837,3 +837,15 @@ think {
         padding: 15px 30px;
     }
 }
+    think {
+        font-size: 0.85rem;
+        background-color: rgba(99, 102, 241, 0.1);
+        display: block;
+        padding: 12px;
+        margin: 12px 0;
+        border-radius: var(--border-radius);
+        color: var(--light-text);
+        border-left: 3px solid var(--primary-color);
+        position: relative;
+        transition: all 0.3s ease;
+    }
